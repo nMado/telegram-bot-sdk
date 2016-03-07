@@ -3,6 +3,7 @@
 namespace Telegram\Bot\Commands;
 
 use Telegram\Bot\Api;
+use Telegram\Bot\Exceptions\TelegramOtherException;
 use Telegram\Bot\Objects\Update;
 
 /**
@@ -48,6 +49,13 @@ abstract class Command implements CommandInterface
      * @var Update Holds an Update object.
      */
     protected $update;
+
+    /**
+     * List of this commands questions
+     *
+     * @var CommandQuestion[]
+     */
+    private $questions = [];
 
     /**
      * Get Command Name.
@@ -138,6 +146,28 @@ abstract class Command implements CommandInterface
     }
 
     /**
+     * Returns an instance of Conversation Base.
+     *
+     * @return \Telegram\Bot\ConversationBase
+     */
+    public function getConversationBase()
+    {
+        return $this->telegram->getConversationBase();
+    }
+
+    /**
+     * @return CommandQuestion[]
+     */
+    public function getQuestions()
+    {
+        return $this->questions;
+    }
+
+    public function isConversational() {
+        return !empty($this->questions);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function make($telegram, $arguments, $update)
@@ -160,6 +190,17 @@ abstract class Command implements CommandInterface
     protected function triggerCommand($command, $arguments = null)
     {
         return $this->getCommandBus()->execute($command, $arguments ?: $this->arguments, $this->update);
+    }
+
+    protected function ask($name, $question)
+    {
+        if (array_key_exists($name, $this->questions)) {
+            throw new TelegramOtherException("A question with the name `" . $name . "` has already been added.");
+        }
+
+        $this->questions[$name] = new CommandQuestion($name, $question);
+
+        return $this->questions[$name];
     }
 
     /**

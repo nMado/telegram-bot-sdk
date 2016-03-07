@@ -3,8 +3,8 @@
 namespace Telegram\Bot\Commands;
 
 use Telegram\Bot\Api;
-use Telegram\Bot\Objects\Update;
 use Telegram\Bot\Exceptions\TelegramSDKException;
+use Telegram\Bot\Objects\Update;
 
 /**
  * Class CommandBus.
@@ -41,6 +41,16 @@ class CommandBus
     public function getCommands()
     {
         return $this->commands;
+    }
+
+    /**
+     * Returns an instance of Conversation Base.
+     *
+     * @return \Telegram\Bot\ConversationBase
+     */
+    protected function getConversationManager()
+    {
+        return $this->telegram->getConversationBase();
     }
 
     /**
@@ -170,12 +180,29 @@ class CommandBus
     protected function handler($message, Update $update)
     {
         $match = $this->parseCommand($message);
+
+        /** @var $lastCommand Object contains the name and arguments of the last cached command */
+        $lastCommand = $this->telegram->getConversationBase()->getOngoingCommand($update->getMessage());
+
         if (!empty($match)) {
+            // User is starting a new command, empty cache to clear previous commands state
+            //
+
             $command = strtolower($match[1]); //All commands must be lowercase.
 //            $bot = (!empty($match[2])) ? $match[2] : '';
             $arguments = $match[3];
 
             $this->execute($command, $arguments, $update);
+        } else if (!$lastCommand) {
+            /** @var Command $command */
+            $command = $this->execute($lastCommand->getName(), $lastCommand->getArguments(), $update);
+
+            // Check if the command type is conversational (This is detected when the user uses `$this->ask()`
+            // in the command.
+            if($command->isConversational()) {
+                // Start processing the command
+                $this->getConversationManager()->processCommandConversation($command);
+            }
         }
 
         return $update;

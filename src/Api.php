@@ -76,6 +76,11 @@ class Api
     protected $connectTimeOut = 10;
 
     /**
+     * @var ConversationBase|null The conversation manager.
+     */
+    protected $conversationBase = null;
+
+    /**
      * Instantiates a new Telegram super-class object.
      *
      *
@@ -110,6 +115,7 @@ class Api
 
         $this->client = new TelegramClient($httpClientHandler);
         $this->commandBus = new CommandBus($this);
+        $this->conversationBase = new ConversationBase();
     }
 
     /**
@@ -194,6 +200,16 @@ class Api
     public function getCommandBus()
     {
         return $this->commandBus;
+    }
+
+    /**
+     * Returns SDK's Conversation Manager.
+     *
+     * @return ConversationBase
+     */
+    public function getConversationBase()
+    {
+        return $this->conversationBase;
     }
 
     /**
@@ -833,7 +849,9 @@ class Api
     {
         $message = $update->getMessage();
 
-        if ($message !== null && $message->has('text')) {
+        if ($message !== null
+            && ($message->has('text') || $this->getConversationBase()->hasUnfinishedConversation($message))
+        ) {
             $this->getCommandBus()->handler($message->getText(), $update);
         }
     }
